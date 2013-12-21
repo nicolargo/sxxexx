@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset='utf-8'>
+    <meta http-equiv="X-UA-Compatible" content="chrome=1">
+
+    <link rel="stylesheet" type="text/css" href="stylesheets/stylesheet.css" media="screen" />
+    <link rel="stylesheet" type="text/css" href="stylesheets/pygment_trac.css" media="screen" />
+    <link rel="stylesheet" type="text/css" href="stylesheets/print.css" media="print" />
+
+    <title>Sxxexx by nicolargo</title>
+  </head>
+
+  <body>
+
+    <header>
+      <div class="container">
+        <h1>Sxxexx</h1>
+        <h2>A command line tool to search (and download) series from the Piracy Bay.</h2>
+
+        <section id="downloads">
+          <a href="https://github.com/nicolargo/sxxexx/zipball/master" class="btn">Download as .zip</a>
+          <a href="https://github.com/nicolargo/sxxexx/tarball/master" class="btn">Download as .tar.gz</a>
+          <a href="https://github.com/nicolargo/sxxexx" class="btn btn-github"><span class="icon"></span>View on GitHub</a>
+        </section>
+      </div>
+    </header>
+
+    <div class="container">
+      <section id="main_content">
+        <h1>
+<a name="sxxexx" class="anchor" href="#sxxexx"><span class="octicon octicon-link"></span></a>SxxExx</h1>
+
+<p>A command line tool to search (and download) series from the Piracy Bay.</p>
+
+<p>Examples:</p>
+
+<p>1) Search and display best magnet (most seeded) Homeland season 3, episode 10</p>
+
+<pre><code>$ sxxexx -t homeland -s 3 -e 10
+
+Title:   Homeland S03E10 HDTV x264-ASAP [eztv]
+Seeders: 5263
+Magnet:  magnet:?xt=urn:btih:522b99e066bf977...
+</code></pre>
+
+<p>2) Search and display all magnets Breaking bad season 5 (all episodes)</p>
+
+<pre><code>$ sxxexx.py -t "Breaking bad" -s 5 -a
+
+*******************************************************************************
+Title:   Breaking Bad S05E10 HDTV x264-ASAP
+Seeders: 2310
+Magnet:  magnet:?xt=urn:btih:1a30f4646c7236c...
+*******************************************************************************
+Title:   Breaking Bad S05E09 HDTV x264-ASAP
+Seeders: 2303
+Magnet:  magnet:?xt=urn:btih:4ea50819447010f...
+*******************************************************************************
+...
+</code></pre>
+
+<p>3) Search and start downloading (using Transmission) How i met your mother season 9, episode 9</p>
+
+<pre><code>$ sxxexx -t "how i met your mother" -s 9 -e 9 -d
+
+Title:   How I Met Your Mother S09E09 HDTV x264-2HD [eztv]
+Seeders: 5037
+Magnet:  magnet:?xt=urn:btih:11633c741fe5e0a...
+Transmission start downloading...
+</code></pre>
+
+<p>4) Search and display best magnet (most seeded) Homeland season 3, episode 10 in verbose mode</p>
+
+<pre><code>$ sxxexx -t homeland -s 3 -e 12 -V
+
+21/12/2013 11:06:26 DEBUG - Running SxxExx version 0.2
+21/12/2013 11:06:26 DEBUG - Debug mode is ON
+21/12/2013 11:06:26 DEBUG - Search for title Homeland
+21/12/2013 11:06:26 DEBUG - Search for season 3
+21/12/2013 11:06:26 DEBUG - Search for episode 12
+21/12/2013 11:06:26 DEBUG - Download mode is OFF
+21/12/2013 11:06:26 DEBUG - Piracy Bay URL (use -p to overwrite): https://thepiratebay.se
+21/12/2013 11:06:26 DEBUG - Connected to the Piracy Bay
+21/12/2013 11:06:26 DEBUG - Search regexp: .*homeland.*((s[0]*3.*e[0]*12)|[0]*3x[0]*12).*
+21/12/2013 11:06:26 DEBUG - Search homeland in the category TV shows...
+21/12/2013 11:06:29 DEBUG - Search homeland in the category HD TV shows...
+21/12/2013 11:06:32 DEBUG - 8 torrent(s) found
+21/12/2013 11:06:32 DEBUG - Best match is Homeland S03E12 WEBRip x264-KYR[ettv]
+Title:   Homeland S03E12 WEBRip x264-KYR[ettv]
+Seeders: 7792
+Magnet:  magnet:?xt=urn:btih:d728fb44446e6c16e...
+</code></pre>
+      </section>
+    </div>
+
+    
+  </body>
+</html>
