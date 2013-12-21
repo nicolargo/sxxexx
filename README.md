@@ -3,7 +3,17 @@ SxxExx
 
 A command line tool to search (and download) series from the Piracy Bay.
 
-Examples:
+# Install 
+
+Easy way to install:
+
+    pip install sxxexx
+
+or upgrade:
+
+    pip install --upgrade sxxexx
+
+# Cookbook
 
 1) Search and display best magnet (most seeded) Homeland season 3, episode 10
 
