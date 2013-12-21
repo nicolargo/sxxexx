@@ -12,14 +12,14 @@ data_files = [
 
 setup(
     name='sxxexx',
-    version='0.1',
+    version='0.2',
     description="A command line tool to search (and download) series from the Piracy Bay",
     long_description=open('README.md').read(),
     author='Nicolas Hennion',
     author_email='nicolas@nicolargo.com',
     url='https://github.com/nicolargo/sxxexx',
     license="MIT",
-    keywords="torrent,search,download,series",
+    keywords="torrent search download serie",
     packages=['sxxexx'],
     include_package_data=True,
     data_files=data_files,

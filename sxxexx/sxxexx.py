@@ -10,7 +10,7 @@
 # Distributed under the MIT license (MIT)
 
 __appname__ = "SxxExx"
-__version__ = "0.1"
+__version__ = "0.2"
 __author__ = "Nicolas Hennion <nicolas@nicolargo.com>"
 __license__ = "MIT"
 # Syntax
@@ -64,7 +64,8 @@ else:
     transmissionrpc_tag = True
 
 # Global variables
-tpb_url = "https://thepiratebay.gy"
+tpb_url = "https://thepiratebay.se"
+tpb_categories = { 205: 'TV shows', 208: 'HD TV shows' }
 transmission_rcp = "localhost:9091"
 
 # Limit import to class...
@@ -87,15 +88,16 @@ class series(object):
         self.seeders_min = seeders_min
         self.regexp = self.search_regexp()
         logging.debug("Search regexp: %s" % self.regexp)
-        # Not usefull: HD are already in the TV_SHOWS category
-        # self.list = self.buildlist(category=tpb.CATEGORIES.VIDEO.TV_SHOWS) + self.buildlist(category=tpb.CATEGORIES.VIDEO.HD_TV_SHOWS)
         self.list = self.buildlist(category=tpb.CATEGORIES.VIDEO.TV_SHOWS)
+        self.list = self.list + self.buildlist(category=tpb.CATEGORIES.VIDEO.HD_TV_SHOWS)
+        self.list.sort(key=lambda torrent: torrent[1], reverse=True)
         logging.debug("%s torrent(s) found" % len(self.list))        
 
 
     def __tpb_error_(self):
         print("Error: Communication problem with the Piracy Bay")
-        print("Check if the Piracy Bay Web site is online: %s" % self.tpb_url)            
+        print("Info: Check if the Piracy Bay Web site is online: %s" % self.tpb_url)            
+        print("Note: You can change the Piracy Bay URL with the -p tag")            
 
 
     def __readsource__(self):
@@ -117,10 +119,15 @@ class series(object):
         """
         Define the regexp used for the search
         """
-        if (self.episode == ""):
-            regexp = '.*%s.*s[0]*%s.*' % (self.title.lower(), self.season)
+        if ((self.season == "") and (self.episode == "")):
+            # Find serie
+            regexp = '.*%s.*' % self.title.lower()
+        elif (self.episode == ""):
+            # Find season
+            regexp = '.*%s.*(s[0]*%s|season[\s\_\-\.]*%s).*' % (self.title.lower(), self.season, self.season)
         else:
-            regexp = '.*%s.*s[0]*%s.*e[0]*%s.*' % (self.title.lower(), self.season, self.episode)
+            # Find season and episode
+            regexp = '.*%s.*((s[0]*%s.*e[0]*%s)|[0]*%sx[0]*%s).*' % (self.title.lower(), self.season, self.episode, self.season, self.episode)
         return regexp
 
 
@@ -130,14 +137,15 @@ class series(object):
         Return list of list sorted by Seeders 
         [[<title>, <Seeders>, <MagnetURL>, <TorrentURL] ...]
         """
+
         try:
-            s = self.source.search(self.title.lower(), category)
+            s = self.source.search(self.title.lower(), category=category)
         except:
-            logging.debug("Can not sent search request to the Piracy Bay")            
+            logging.debug("Can not send search request to the Piracy Bay")            
             self.__tpb_error_()
             sys.exit(1)
 
-        logging.debug("Start searching in the database (category %s)..." % category)
+        logging.debug("Search %s in the category %s..." % (self.title.lower(), tpb_categories[category]))
 
         try:
             for t in s.items():
@@ -149,9 +157,11 @@ class series(object):
 
         torrentlist = []
         for t in s.items():
+            # logging.debug("Compare regex to: %s" % t.title.lower())
             if (re.search(self.regexp, t.title.lower()) and (t.seeders >= self.seeders_min)):
+                # logging.debug("Matched")
                 torrentlist.append((t.title, t.seeders, t.magnet_link, t.torrent_link))
-        logging.debug("Found %s matching items" % len(torrentlist))
+        # logging.debug("Found %s matching items" % len(torrentlist))
 
         # Return the list
         return torrentlist
