@@ -10,9 +10,11 @@ data_files = [
     ('share/doc/sxxexx', ['AUTHORS', 'README.md'])
 ]
 
+requires = [ 'ThePirateBay>=1.3.0', 'transmissionrpc>=0.11' ]
+
 setup(
     name='sxxexx',
-    version='0.2',
+    version='0.3',
     description="A command line tool to search (and download) series from the Piracy Bay",
     long_description=open('README.md').read(),
     author='Nicolas Hennion',
@@ -20,6 +22,7 @@ setup(
     url='https://github.com/nicolargo/sxxexx',
     license="MIT",
     keywords="torrent search download serie",
+    install_requires=requires,
     packages=['sxxexx'],
     include_package_data=True,
     data_files=data_files,
