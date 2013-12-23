@@ -10,7 +10,7 @@ data_files = [
     ('share/doc/sxxexx', ['AUTHORS', 'README.md'])
 ]
 
-requires = [ 'ThePirateBay>=1.3.0', 'transmissionrpc>=0.11' ]
+requires = [ 'ThePirateBay>=1.3.0', 'tvdb_api>=1.9', 'transmissionrpc>=0.11' ]
 
 setup(
     name='sxxexx',

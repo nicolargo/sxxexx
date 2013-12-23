@@ -10,7 +10,7 @@
 # Distributed under the MIT license (MIT)
 
 __appname__ = "SxxExx"
-__version__ = "0.3"
+__version__ = "0.4beta"
 __author__ = "Nicolas Hennion <nicolas@nicolargo.com>"
 __license__ = "MIT"
 # Syntax
@@ -29,9 +29,11 @@ Options:
     -a             Display all results (not only the best choice)
     -d             Download best choice using Transmission (RPC)
     -c <host:port> Overwrite Transmission RPC address (default localhost:9091)
+    -i             Disable access to the TVDB database
+    -V             Switch on verbose mode (verbose like a man)
+    -D             Switch on debug mode (verbose like a woman)
     -h             Display help and exit
     -v             Display version and exit
-    -V             Switch on debug/verbose mode
 
 Examples:
 
@@ -54,8 +56,15 @@ import re
 try:
     import tpb
 except:
-    print("Error: Sorry but SxxExx need ThePiracyBay Python lib")
+    print("Error: Sorry but SxxExx need ThePirateBay Python lib")
+    print("Install it using: # pip install thepiratebay")
     sys.exit(1)
+try:
+    import tvdb_api
+except:
+    tvdbapi_tag = False
+else:
+    tvdbapi_tag = True
 try:
     import transmissionrpc
 except:
@@ -65,13 +74,58 @@ else:
 
 # Global variables
 tpb_url = "https://thepiratebay.se"
-tpb_categories = { 205: 'TV shows', 208: 'HD TV shows' }
+tpb_categories = { tpb.CATEGORIES.VIDEO.TV_SHOWS: 'TV shows', tpb.CATEGORIES.VIDEO.HD_TV_SHOWS: 'HD TV shows' }
 transmission_rcp = "localhost:9091"
 
 # Limit import to class...
 # __all__ = [ series ]
 
 # Classes
+
+class tvdb(object):
+    """
+    Class to manage connection to the TVDB database
+    """
+
+    def __init__(self, title=""):
+        self.tvdb_tag = tvdbapi_tag
+        if (self.tvdb_tag):
+            self.tvdb = tvdb_api.Tvdb()
+            self.tvdb_serie = self.get_serie(title)
+            self.data = self.tvdb_serie.data
+        self.tvdb_season = None
+        self.tvdb_episode = None
+
+
+    def get_serie(self, title=""):
+        if (self.tvdb_tag):
+            self.tvdb_serie = self.tvdb[title]
+        return self.tvdb_serie
+
+
+    def get_season(self, season=0):
+        if (self.tvdb_tag and (self.tvdb_serie != None)):
+            self.tvdb_season = self.tvdb_serie[season]
+        return self.tvdb_season
+
+
+    def get_season_number(self):
+        if (self.tvdb_tag and (self.tvdb_serie != None)):
+            return len(self.tvdb_serie)-1
+        return -1
+
+
+    def get_episode(self, season, episode):
+        if (self.tvdb_tag and (self.tvdb_serie != None)):
+            self.tvdb_episode = self.tvdb_serie[season][episode]
+        return self.tvdb_episode
+
+
+    def get_episode_number(self, season):
+        if (self.tvdb_tag and (self.tvdb_serie != None)):
+            return len(self.tvdb_serie[season])
+        return -1
+
 
 class series(object):
     """
@@ -86,18 +140,21 @@ class series(object):
         self.season = season
         self.episode = episode
         self.seeders_min = seeders_min
+        logging.info("Get serie information from TVDB")
+        self.tvdb = tvdb(self.title)
         self.regexp = self.search_regexp()
         logging.debug("Search regexp: %s" % self.regexp)
-        self.list = self.buildlist(category=tpb.CATEGORIES.VIDEO.TV_SHOWS)
-        self.list = self.list + self.buildlist(category=tpb.CATEGORIES.VIDEO.HD_TV_SHOWS)
+        self.list = []
+        for c in tpb_categories.keys():
+            self.list += self.buildlist(category=c)
         self.list.sort(key=lambda torrent: torrent[1], reverse=True)
-        logging.debug("%s torrent(s) found" % len(self.list))        
+        logging.info("%s torrent(s) found" % len(self.list))        
 
 
     def __tpb_error_(self):
-        print("Error: Communication problem with the Piracy Bay")
-        print("Info: Check if the Piracy Bay Web site is online: %s" % self.tpb_url)            
-        print("Note: You can change the Piracy Bay URL with the -p tag")            
+        # loging.error("Communication problem with the Piracy Bay")
+        loging.info("Check if the Piracy Bay Web site is online: %s" % self.tpb_url)            
+        loging.debug("You can change the Piracy Bay URL with the -p tag")            
 
 
     def __readsource__(self):
@@ -107,7 +164,7 @@ class series(object):
         try:
             s = tpb.TPB(self.tpb_url)
         except:
-            logging.debug("Can not connect to the Piracy Bay")            
+            logging.error("Can not connect to the Piracy Bay Web site")            
             self.__tpb_error_()
             sys.exit(1)
         else:
@@ -121,12 +178,24 @@ class series(object):
         """
         if ((self.season == "") and (self.episode == "")):
             # Find serie
+            try:
+                print("%s has %s seasons" % (self.tvdb.data['seriesname'], self.tvdb.get_season_number()))
+            except:
+                pass
             regexp = '.*%s.*' % self.title.lower()
         elif (self.episode == ""):
             # Find season
+            try:
+                print("%s has %s episodes in season %s" % (self.tvdb.data['seriesname'], self.tvdb.get_episode_number(int(self.season)), self.season))
+            except:
+                pass
             regexp = '.*%s.*(s[0]*%s|season[\s\_\-\.]*%s).*' % (self.title.lower(), self.season, self.season)
         else:
             # Find season and episode
+            try:
+                print("%s S%sE%s name is \"%s\"" % (self.tvdb.data['seriesname'], self.season, self.episode, self.tvdb.get_episode(int(self.season), int(self.episode))['episodename']))
+            except:
+                pass
             regexp = '.*%s.*((s[0]*%s.*e[0]*%s)|[0]*%sx[0]*%s).*' % (self.title.lower(), self.season, self.episode, self.season, self.episode)
         return regexp
 
@@ -141,17 +210,17 @@ class series(object):
         try:
             s = self.source.search(self.title.lower(), category=category)
         except:
-            logging.debug("Can not send search request to the Piracy Bay")            
+            logging.error("Can not send search request to the Piracy Bay")            
             self.__tpb_error_()
             sys.exit(1)
 
-        logging.debug("Search %s in the category %s..." % (self.title.lower(), tpb_categories[category]))
+        logging.info("Search %s in the category %s..." % (self.title.lower(), tpb_categories[category]))
 
         try:
             for t in s.items():
                 pass
         except:
-            logging.debug("The Piracy Bay return an invalid result") 
+            logging.error("The Piracy Bay return an invalid result") 
             self.__tpb_error_()
             sys.exit(1)            
 
@@ -161,7 +230,7 @@ class series(object):
             if (re.search(self.regexp, t.title.lower()) and (t.seeders >= self.seeders_min)):
                 # logging.debug("Matched")
                 torrentlist.append((t.title, t.seeders, t.magnet_link, t.torrent_link))
-        # logging.debug("Found %s matching items" % len(torrentlist))
+        logging.debug("Found %s matching items in category %s" % (len(torrentlist), tpb_categories[category]))
 
         # Return the list
         return torrentlist
@@ -213,6 +282,7 @@ def main():
 
     global tpb_url
     global transmission_rcp
+    global tvdbapi_tag
 
     # Init locals variables
     serie_title = None
@@ -224,11 +294,10 @@ def main():
 
     # Manage args
     try:
-        opts, args = getopt.getopt(sys.argv[1:], "t:s:e:l:dc:p:ahvV")
+        opts, args = getopt.getopt(sys.argv[1:], "t:s:e:l:dc:p:aiVDhv")
     except getopt.GetoptError as err:
         # Print help information and exit:
-        print("Error: " + str(err))
-        printSyntax()
+        print("Syntax error, %s" % str(err))
         sys.exit(2)
     for opt, arg in opts:
         if opt in ("-t"):
@@ -267,6 +336,8 @@ def main():
                 sys.exit(1) 
         elif opt in ("-a"):
             display_all_tag = True
+        elif opt in ("-i"):
+            tvdbapi_tag = False
         elif opt in ("-h"):
             printVersion()
             printSyntax()
@@ -278,60 +349,72 @@ def main():
             _DEBUG_ = True
             # Verbose mode is ON
             logging.basicConfig(
+                level=logging.INFO,
+                format='%(asctime)s %(levelname)s - %(message)s',
+                datefmt='%d/%m/%Y %H:%M:%S',
+            )
+            logging.debug("Verbose mode is ON")
+        elif opt in ("-D"):
+            _DEBUG_ = True
+            # Debug mode is ON
+            logging.basicConfig(
                 level=logging.DEBUG,
                 format='%(asctime)s %(levelname)s - %(message)s',
                 datefmt='%d/%m/%Y %H:%M:%S',
             )
+            logging.debug("Debug mode is ON")
         # Add others options here...
         else:
             printSyntax()
             sys.exit(1)
 
-    # By default verbose mode is OFF
-    if not _DEBUG_:
+    if (not _DEBUG_):
+        # Set default logging message to ERROR
         logging.basicConfig(
-            level=logging.INFO,
+            level=logging.ERROR,
             format='%(asctime)s %(levelname)s - %(message)s',
             datefmt='%d/%m/%Y %H:%M:%S',
         )
-    logging.debug("Running %s version %s" % (__appname__, __version__))
-    logging.debug("Debug mode is ON")
+
+    logging.info("Running %s version %s" % (__appname__, __version__))
 
     # Test args
     if (serie_title is None):
-        print("Error: Need a serie's title")
-        printSyntax()
+        loging.error("Need a serie's title. Use the -t tag.")
         sys.exit(1)
     else:
-        logging.debug("Search for title %s" % serie_title)
+        logging.info("Search for title %s" % serie_title)
     if (serie_season != ""):
-        logging.debug("Search for season %s" % serie_season)
+        logging.info("Search for season %s" % serie_season)
     if (serie_episode != ""):
-        logging.debug("Search for episode %s" % serie_episode)
+        logging.info("Search for episode %s" % serie_episode)
     if (download_tag and not transmissionrpc_tag):
-        print("Error: -d tag need the TransmissionRPC Python lib")
+        loging.error("-d tag need the TransmissionRPC Python lib")
         sys.exit(1)         
     if (download_tag and display_all_tag):
-        print("Error: -d tag can not be used with the -a tag")
-        printSyntax()
+        loging.error("-d tag can not be used with the -a tag")
         sys.exit(1)         
     if (download_tag and not display_all_tag):
-        logging.debug("Download mode is ON")
+        logging.info("Download mode is ON")
         try:
             transmission_rcp_host, transmission_rcp_port = transmission_rcp.split(':')
             transmission_rcp_port = int(transmission_rcp_port)
         except:
-            print("Error: Transmission RPC should be host:port")
-            printSyntax()
+            loging.error("Transmission RPC adress should be host:port")
             sys.exit(1)
         else:
-            logging.debug("Transmission RPC: host=%s / port=%s" % (transmission_rcp_host, transmission_rcp_port))
+            logging.info("Transmission RPC: host=%s / port=%s" % (transmission_rcp_host, transmission_rcp_port))
     else:
-        logging.debug("Download mode is OFF")
+        logging.info("Download mode is OFF")
     if (display_all_tag):
-        logging.debug("Display all tag is ON")
+        logging.info("Display all tag is ON")
 
-    logging.debug("Piracy Bay URL (use -p to overwrite): %s" % tpb_url)
+    if (tvdbapi_tag):
+        logging.info("TVDB API is installed")
+    else:
+        logging.info("TVDB API is not installed")
+
+    logging.info("Piracy Bay URL (use -p to overwrite): %s" % tpb_url)
 
     # Main loop
     serie = series(tpb_url = tpb_url, title=serie_title, season=serie_season, episode=serie_episode, seeders_min=seeders_min)
@@ -340,7 +423,7 @@ def main():
     # Display result
     if (best is not None):
         if (display_all_tag):
-            logging.debug("Display all results")
+            logging.info("Display all results")
             for r in serie.getall():
                 print("*"*79)
                 print("Title:   %s" % r[0])
@@ -348,7 +431,7 @@ def main():
                 print("Magnet:  %s" % r[2])
                 # print("Torrent: %s" % r[3])
         else:
-            logging.debug("Best match is %s" % best[0])
+            logging.info("Best match is %s" % best[0])
             print("Title:   %s" % best[0])
             print("Seeders: %s" % best[1])
             print("Magnet:  %s" % best[2])
@@ -358,25 +441,23 @@ def main():
 
     # Download
     if ((best is not None) and download_tag):
-        logging.debug("Send best magnet to Transmission")
+        logging.info("Send best magnet to Transmission")
         try:
             tc = transmissionrpc.Client(transmission_rcp_host, port=transmission_rcp_port)
         except:
             print("Error: Can not connect to Transmission (%s:%s)" % (transmission_rcp_host, transmission_rcp_port))
             print("Info: Transmission remote control access should be enabled on host %s, port %s" % (transmission_rcp_host, transmission_rcp_port))
-            logging.debug("Can not connect to Transmission (%s:%s)" % (transmission_rcp_host, transmission_rcp_port))
+            logging.info("Can not connect to Transmission (%s:%s)" % (transmission_rcp_host, transmission_rcp_port))
             sys.exit(1)
         else:
             logging.debug("Transmission connection completed")
         try:
             tc.add_uri(best[2])
         except:
-            print("Error: Transmission can not start download")
-            logging.debug("Error while sending download request to Transmission")
+            logging.error("Error while sending download request to Transmission")
             sys.exit(1)
         else:
             print("Transmission start downloading...")
-            logging.debug("SxxExx sent the magnet to Transmission")
 
     # End of the game
     sys.exit(0)
