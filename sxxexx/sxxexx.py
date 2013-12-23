@@ -10,7 +10,7 @@
 # Distributed under the MIT license (MIT)
 
 __appname__ = "SxxExx"
-__version__ = "0.4beta"
+__version__ = "0.4"
 __author__ = "Nicolas Hennion <nicolas@nicolargo.com>"
 __license__ = "MIT"
 # Syntax
@@ -39,8 +39,10 @@ Examples:
 
     # sxxexx -t homeland -s 3 -e 10 -a
     > Display all Homeland S03E10 torrents
+
     # sxxexx -t "the walking dead" -s 4 -e 8 -d
     > Download best torrent (most seeded) for The Walking Dead S04E08
+    
     # sxxexx -t "how i met your mother" -s 9 -a
     > Display all HYMYM torrents of the season 9
 
@@ -52,13 +54,15 @@ import sys
 import logging
 import re
 
-# Import ext lib
+# Import ext lib (mandatory)
 try:
     import tpb
 except:
     print("Error: Sorry but SxxExx need ThePirateBay Python lib")
     print("Install it using: # pip install thepiratebay")
     sys.exit(1)
+
+# Import ext lib (optionnal)
 try:
     import tvdb_api
 except:
@@ -77,22 +81,22 @@ tpb_url = "https://thepiratebay.se"
 tpb_categories = { tpb.CATEGORIES.VIDEO.TV_SHOWS: 'TV shows', tpb.CATEGORIES.VIDEO.HD_TV_SHOWS: 'HD TV shows' }
 transmission_rcp = "localhost:9091"
 
-# Limit import to class...
-# __all__ = [ series ]
-
 # Classes
 
 class tvdb(object):
     """
     Class to manage connection to the TVDB database
+    In the current version, TVDB is optionnal
     """
 
     def __init__(self, title=""):
         self.tvdb_tag = tvdbapi_tag
         if (self.tvdb_tag):
             self.tvdb = tvdb_api.Tvdb()
-            self.tvdb_serie = self.get_serie(title)
-            self.data = self.tvdb_serie.data
+            try:
+                self.tvdb_serie = self.get_serie(title)
+            except:
+                self.tvdb_serie = None
         self.tvdb_season = None
         self.tvdb_episode = None
 
@@ -100,6 +104,7 @@ class tvdb(object):
     def get_serie(self, title=""):
         if (self.tvdb_tag):
             self.tvdb_serie = self.tvdb[title]
+            self.data = self.tvdb_serie.data
         return self.tvdb_serie
 
 
@@ -135,6 +140,7 @@ class series(object):
     def __init__(self, tpb_url= "",
                  title="", season="", episode="", seeders_min=0):
         self.tpb_url = tpb_url
+        # TPB is the "source" for SxxExx
         self.source = self.__readsource__()
         self.title = title
         self.season = season
@@ -179,24 +185,25 @@ class series(object):
         if ((self.season == "") and (self.episode == "")):
             # Find serie
             try:
-                print("%s has %s seasons" % (self.tvdb.data['seriesname'], self.tvdb.get_season_number()))
+                print("%s has %s seasons (the serie is %s)" % (self.tvdb.data['seriesname'], self.tvdb.get_season_number(), self.tvdb.data['status'].lower()))
+                # print self.tvdb.data
             except:
                 pass
-            regexp = '.*%s.*' % self.title.lower()
+            regexp = '^%s.*' % self.title.lower()
         elif (self.episode == ""):
             # Find season
             try:
                 print("%s has %s episodes in season %s" % (self.tvdb.data['seriesname'], self.tvdb.get_episode_number(int(self.season)), self.season))
             except:
                 pass
-            regexp = '.*%s.*(s[0]*%s|season[\s\_\-\.]*%s).*' % (self.title.lower(), self.season, self.season)
+            regexp = '^%s.*(s[0]*%s|season[\s\_\-\.]*%s).*' % (self.title.lower(), self.season, self.season)
         else:
             # Find season and episode
             try:
                 print("%s S%sE%s name is \"%s\"" % (self.tvdb.data['seriesname'], self.season, self.episode, self.tvdb.get_episode(int(self.season), int(self.episode))['episodename']))
             except:
                 pass
-            regexp = '.*%s.*((s[0]*%s.*e[0]*%s)|[0]*%sx[0]*%s).*' % (self.title.lower(), self.season, self.episode, self.season, self.episode)
+            regexp = '^%s.*((s[0]*%s.*e[0]*%s)|[0]*%sx[0]*%s).*' % (self.title.lower(), self.season, self.episode, self.season, self.episode)
         return regexp
 
 

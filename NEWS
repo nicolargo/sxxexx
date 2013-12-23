@@ -1,3 +1,13 @@
+Version 0.4
+===========
+
+    * Use the TVDB for series informations
+
+Version 0.3
+===========
+
+    * Correct a bug (issue #1) in the Pypi package
+
 Version 0.2
 ===========
 
