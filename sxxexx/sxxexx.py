@@ -10,7 +10,7 @@
 # Distributed under the MIT license (MIT)
 
 __appname__ = "SxxExx"
-__version__ = "0.4"
+__version__ = "0.5beta"
 __author__ = "Nicolas Hennion <nicolas@nicolargo.com>"
 __license__ = "MIT"
 # Syntax
@@ -25,6 +25,7 @@ Options:
     -s <season>    Season (optionnal)
     -e <episode>   Episode (optionnal)
     -l <min>       Minimum seeders (optionnal, default is 0)
+    -q             Add a filter for HD quality
     -p <url>       Overwrite default Piracy Bay URL
     -a             Display all results (not only the best choice)
     -d             Download best choice using Transmission (RPC)
@@ -78,7 +79,9 @@ else:
 
 # Global variables
 tpb_url = "https://thepiratebay.se"
-tpb_categories = { tpb.CATEGORIES.VIDEO.TV_SHOWS: 'TV shows', tpb.CATEGORIES.VIDEO.HD_TV_SHOWS: 'HD TV shows' }
+tpb_categories = {}
+tpb_categories_ld = { tpb.CATEGORIES.VIDEO.TV_SHOWS: 'TV shows' }
+tpb_categories_hd = { tpb.CATEGORIES.VIDEO.HD_TV_SHOWS: 'HD TV shows' }
 transmission_rcp = "localhost:9091"
 
 # Classes
@@ -288,6 +291,7 @@ def main():
     _DEBUG_ = False
 
     global tpb_url
+    global tpb_categories    
     global transmission_rcp
     global tvdbapi_tag
 
@@ -298,10 +302,11 @@ def main():
     seeders_min = 0
     download_tag = False
     display_all_tag = False
+    hd_tag = False
 
     # Manage args
     try:
-        opts, args = getopt.getopt(sys.argv[1:], "t:s:e:l:dc:p:aiVDhv")
+        opts, args = getopt.getopt(sys.argv[1:], "t:s:e:l:qdc:p:aiVDhv")
     except getopt.GetoptError as err:
         # Print help information and exit:
         print("Syntax error, %s" % str(err))
@@ -331,6 +336,8 @@ def main():
             except:
                 printVersion()
                 sys.exit(1) 
+        elif opt in ("-q"):
+            hd_tag = True
         elif opt in ("-d"):
             download_tag = True
         elif opt in ("-c"):
@@ -387,17 +394,28 @@ def main():
 
     # Test args
     if (serie_title is None):
+        # A serie's title is needed... always
         loging.error("Need a serie's title. Use the -t tag.")
         sys.exit(1)
     else:
         logging.info("Search for title %s" % serie_title)
     if (serie_season != ""):
+        # Optionnal season number
         logging.info("Search for season %s" % serie_season)
     if (serie_episode != ""):
+        # Optionnal episode number
         logging.info("Search for episode %s" % serie_episode)
     if (download_tag and not transmissionrpc_tag):
         loging.error("-d tag need the TransmissionRPC Python lib")
         sys.exit(1)         
+    if (hd_tag):
+        # HD tag is True: search only in the HD category
+        tpb_categories.update(tpb_categories_hd)
+        logging.info("Filter HD series")
+    else:
+        # By default search on all categories (SD and HD)
+        tpb_categories.update(tpb_categories_ld)
+        tpb_categories.update(tpb_categories_hd)
     if (download_tag and display_all_tag):
         loging.error("-d tag can not be used with the -a tag")
         sys.exit(1)         
