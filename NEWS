@@ -2,6 +2,7 @@ Version 0.5
 ===========
 
     * Add a tag (-q) to filter HD series
+    * Correct a bug with the logging module
 
 Version 0.4
 ===========

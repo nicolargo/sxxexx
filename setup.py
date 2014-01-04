@@ -14,7 +14,7 @@ requires = [ 'ThePirateBay>=1.3.0', 'tvdb_api>=1.9', 'transmissionrpc>=0.11' ]
 
 setup(
     name='sxxexx',
-    version='0.4',
+    version='0.5',
     description="A command line tool to search (and download) series from the Piracy Bay",
     long_description=open('README.md').read(),
     author='Nicolas Hennion',

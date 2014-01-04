@@ -5,12 +5,12 @@
 # Thk to Piracy Bay, search and download series.
 # Command line only. No GUI bulshit.
 #
-# Copyright (C) 2013 Nicolargo <nicolas@nicolargo.com>
+# Copyright (C) 2014 Nicolargo <nicolas@nicolargo.com>
 #
 # Distributed under the MIT license (MIT)
 
 __appname__ = "SxxExx"
-__version__ = "0.5beta"
+__version__ = "0.5"
 __author__ = "Nicolas Hennion <nicolas@nicolargo.com>"
 __license__ = "MIT"
 # Syntax
@@ -43,7 +43,7 @@ Examples:
 
     # sxxexx -t "the walking dead" -s 4 -e 8 -d
     > Download best torrent (most seeded) for The Walking Dead S04E08
-    
+
     # sxxexx -t "how i met your mother" -s 9 -a
     > Display all HYMYM torrents of the season 9
 
@@ -157,13 +157,13 @@ class series(object):
         for c in tpb_categories.keys():
             self.list += self.buildlist(category=c)
         self.list.sort(key=lambda torrent: torrent[1], reverse=True)
-        logging.info("%s torrent(s) found" % len(self.list))        
+        logging.info("%s torrent(s) found" % len(self.list))
 
 
     def __tpb_error_(self):
-        # loging.error("Communication problem with the Piracy Bay")
-        loging.info("Check if the Piracy Bay Web site is online: %s" % self.tpb_url)            
-        loging.debug("You can change the Piracy Bay URL with the -p tag")            
+        # logging.error("Communication problem with the Piracy Bay")
+        logging.info("Check if the Piracy Bay Web site is online: %s" % self.tpb_url)
+        logging.debug("You can change the Piracy Bay URL with the -p tag")
 
 
     def __readsource__(self):
@@ -173,7 +173,7 @@ class series(object):
         try:
             s = tpb.TPB(self.tpb_url)
         except:
-            logging.error("Can not connect to the Piracy Bay Web site")            
+            logging.error("Can not connect to the Piracy Bay Web site")
             self.__tpb_error_()
             sys.exit(1)
         else:
@@ -213,14 +213,14 @@ class series(object):
     def buildlist(self, category=tpb.CATEGORIES.VIDEO.TV_SHOWS):
         """
         Build the torrent list
-        Return list of list sorted by Seeders 
+        Return list of list sorted by Seeders
         [[<title>, <Seeders>, <MagnetURL>, <TorrentURL] ...]
         """
 
         try:
             s = self.source.search(self.title.lower(), category=category)
         except:
-            logging.error("Can not send search request to the Piracy Bay")            
+            logging.error("Can not send search request to the Piracy Bay")
             self.__tpb_error_()
             sys.exit(1)
 
@@ -230,9 +230,9 @@ class series(object):
             for t in s.items():
                 pass
         except:
-            logging.error("The Piracy Bay return an invalid result") 
+            logging.error("The Piracy Bay return an invalid result")
             self.__tpb_error_()
-            sys.exit(1)            
+            sys.exit(1)
 
         torrentlist = []
         for t in s.items():
@@ -291,7 +291,7 @@ def main():
     _DEBUG_ = False
 
     global tpb_url
-    global tpb_categories    
+    global tpb_categories
     global transmission_rcp
     global tvdbapi_tag
 
@@ -317,25 +317,25 @@ def main():
                 serie_title = arg
             except:
                 printVersion()
-                sys.exit(1) 
+                sys.exit(1)
         elif opt in ("-s"):
             try:
                 serie_season = arg
             except:
                 printVersion()
-                sys.exit(1) 
+                sys.exit(1)
         elif opt in ("-e"):
             try:
                 serie_episode = arg
             except:
                 printVersion()
-                sys.exit(1) 
+                sys.exit(1)
         elif opt in ("-l"):
             try:
                 seeders_min = int(arg)
             except:
                 printVersion()
-                sys.exit(1) 
+                sys.exit(1)
         elif opt in ("-q"):
             hd_tag = True
         elif opt in ("-d"):
@@ -347,7 +347,7 @@ def main():
                 tpb_url = arg
             except:
                 printVersion()
-                sys.exit(1) 
+                sys.exit(1)
         elif opt in ("-a"):
             display_all_tag = True
         elif opt in ("-i"):
@@ -358,7 +358,7 @@ def main():
             sys.exit(0)
         elif opt in ("-v"):
             printVersion()
-            sys.exit(0) 
+            sys.exit(0)
         elif opt in ("-V"):
             _DEBUG_ = True
             # Verbose mode is ON
@@ -395,7 +395,7 @@ def main():
     # Test args
     if (serie_title is None):
         # A serie's title is needed... always
-        loging.error("Need a serie's title. Use the -t tag.")
+        logging.error("Need a serie's title. Use the -t tag.")
         sys.exit(1)
     else:
         logging.info("Search for title %s" % serie_title)
@@ -406,8 +406,8 @@ def main():
         # Optionnal episode number
         logging.info("Search for episode %s" % serie_episode)
     if (download_tag and not transmissionrpc_tag):
-        loging.error("-d tag need the TransmissionRPC Python lib")
-        sys.exit(1)         
+        logging.error("-d tag need the TransmissionRPC Python lib")
+        sys.exit(1)
     if (hd_tag):
         # HD tag is True: search only in the HD category
         tpb_categories.update(tpb_categories_hd)
@@ -417,15 +417,15 @@ def main():
         tpb_categories.update(tpb_categories_ld)
         tpb_categories.update(tpb_categories_hd)
     if (download_tag and display_all_tag):
-        loging.error("-d tag can not be used with the -a tag")
-        sys.exit(1)         
+        logging.error("-d tag can not be used with the -a tag")
+        sys.exit(1)
     if (download_tag and not display_all_tag):
         logging.info("Download mode is ON")
         try:
             transmission_rcp_host, transmission_rcp_port = transmission_rcp.split(':')
             transmission_rcp_port = int(transmission_rcp_port)
         except:
-            loging.error("Transmission RPC adress should be host:port")
+            logging.error("Transmission RPC adress should be host:port")
             sys.exit(1)
         else:
             logging.info("Transmission RPC: host=%s / port=%s" % (transmission_rcp_host, transmission_rcp_port))
