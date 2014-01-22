@@ -16,11 +16,12 @@ __license__ = "MIT"
 # Syntax
 __doc__ = '''\
 
-Search (and download) series from the Piracy Bay.
+Search (and download) series from the Piracy Bay and torrent411.
 
 Usage: sxxexx [options]
 
 Options:
+    -T <pb|t411>   Search in server : 't411' (torrent411) or 'pb' (piracy Bay)
     -t <title>     Serie's title
     -s <season>    Season (optionnal)
     -e <episode>   Episode (optionnal)
@@ -55,6 +56,10 @@ import sys
 import logging
 import re
 
+
+from getpass import getpass
+import t411
+
 # Import ext lib (mandatory)
 try:
     import tpb
@@ -76,6 +81,13 @@ except:
     transmissionrpc_tag = False
 else:
     transmissionrpc_tag = True
+
+
+
+
+
+
+
 
 # Global variables
 tpb_url = "https://thepiratebay.se"
@@ -133,6 +145,130 @@ class tvdb(object):
         if (self.tvdb_tag and (self.tvdb_serie != None)):
             return len(self.tvdb_serie[season])
         return -1
+
+
+
+
+
+
+
+
+class series_t411(object):
+    """
+    Main class: search and download series from t411 server
+    """
+
+    def __init__(self,
+            title="", season="", episode="", seeders_min=0):
+        
+        self.login = raw_input('Please enter username: ')
+        self.password = getpass('Please enter password: ')
+
+
+        
+        self.title = title
+        self.source = self.__readsource__(self.login, self.password)
+        self.season = season
+        self.episode = episode
+        self.seeders_min = seeders_min
+
+        try:
+            self.t411_client = t411.T411(self.login, self.password)
+        except Exception as e:
+            raise e
+        
+        
+        self.regexp = self.search_regexp()
+        logging.debug("Search regexp: %s" % self.regexp)
+        self.list = self.buildlist() 
+
+        #sort list of torrents
+        self.list.sort(key=lambda torrent: int(torrent[1]), reverse=True)
+        logging.info("%s torrent(s) found" % len(self.list))
+
+
+    def __readsource__(self, login, password):
+        """
+        Connect to the t411 server with specified login & password
+        """
+        try:
+            src = t411.T411(login, password)
+        except:
+            logging.error("Error with t411 connection...")
+            sys.exit(1)
+        else:
+            print("Connected to the t411 server as '%s'" % login)
+            return src
+
+    def search_regexp(self):
+        """
+        Define the regexp used for the search
+        """
+        if ((self.season == "") and (self.episode == "")):
+            regexp = '^%s.*' % self.title.lower()
+        elif (self.episode == ""):
+            regexp = '^%s.*(s[0]*%s|season[\s\_\-\.]*%s).*' % (self.title.lower(), self.season, self.season)
+        else:
+            regexp = '^%s.*((s[0]*%s.*e[0]*%s)|[0]*%sx[0]*%s).*' % (self.title.lower(), self.season, self.episode, self.season, self.episode)
+        return regexp
+
+
+    def buildlist(self, category=tpb.CATEGORIES.VIDEO.TV_SHOWS, limit=1000):
+        """
+        Build the torrent list
+        Return list of list sorted by seeders count
+        Id can be used to retrieve torrent associate with this id
+        [[<title>, <Seeders>, <id>] ...]
+        """
+
+        try:
+            s = self.source.search(self.title.lower(), limit)
+        except Exception as e:
+            logging.error("Can not send search request to the t411 server")
+            logging.error(e.message)
+            sys.exit(1)
+        
+
+        try:
+            for t in s.items():
+                pass
+        except:
+            logging.error("t411 server returned an invalid result")
+            sys.exit(1)
+
+        torrentlist = []
+        for torrent in s['torrents']:    
+            #logging.debug("Compare regex to: %s" % t.title.lower())
+            if (re.search(self.regexp, torrent['name'].lower()) and (int(torrent['seeders']) >= self.seeders_min)):
+                # logging.debug("Matched")
+                torrentlist.append((torrent['name'], torrent['seeders'], torrent['id']))
+
+        logging.debug("Found %s matching items " % (len(torrentlist)))
+
+        # Return the list
+        return torrentlist
+
+
+    def getbest(self):
+        """
+        Return the best choice (or None if no serie founded)
+        """
+        if (len(self.list) > 0):
+            return self.list[0]
+        else:
+            return None
+
+
+    def getall(self):
+        """
+        Return all the matched series (or None if no serie founded)
+        """
+        if (len(self.list) > 0):
+            return self.list
+        else:
+            return None
+
+
 
 
 class series(object):
@@ -265,7 +401,6 @@ class series(object):
         else:
             return None
 
-
 # Functions
 
 def printSyntax():
@@ -297,6 +432,7 @@ def main():
 
     # Init locals variables
     serie_title = None
+    search_type = None
     serie_season = ""
     serie_episode = ""
     seeders_min = 0
@@ -306,7 +442,7 @@ def main():
 
     # Manage args
     try:
-        opts, args = getopt.getopt(sys.argv[1:], "t:s:e:l:qdc:p:aiVDhv")
+        opts, args = getopt.getopt(sys.argv[1:], "T:t:s:e:l:qdc:p:aiVDhv")
     except getopt.GetoptError as err:
         # Print help information and exit:
         print("Syntax error, %s" % str(err))
@@ -377,11 +513,17 @@ def main():
                 datefmt='%d/%m/%Y %H:%M:%S',
             )
             logging.debug("Debug mode is ON")
+        elif opt in ("-T"):
+            if arg=='pb' or arg=='t411':
+                search_type=arg
+            else:
+                logging.error('Invalid type of search : t411 (torrent411) or pb (Piracy Bay). ')
+                sys.exit(1)
         # Add others options here...
         else:
             printSyntax()
             sys.exit(1)
-
+    
     if (not _DEBUG_):
         # Set default logging message to ERROR
         logging.basicConfig(
@@ -399,6 +541,14 @@ def main():
         sys.exit(1)
     else:
         logging.info("Search for title %s" % serie_title)
+    if search_type==None:
+        logging.error("Need a type of search : t411 (torrent411) or pb (Piracy Bay). Use the -T tag.")
+        sys.exit(1)
+    else:
+        if search_type=='pb':
+            logging.info("Search on PiracyBay")
+        else:
+            logging.info("Search on torrent411")
     if (serie_season != ""):
         # Optionnal season number
         logging.info("Search for season %s" % serie_season)
@@ -439,10 +589,14 @@ def main():
     else:
         logging.info("TVDB API is not installed")
 
-    logging.info("Piracy Bay URL (use -p to overwrite): %s" % tpb_url)
+    if search_type=='pb':
+        logging.info("Piracy Bay URL (use -p to overwrite): %s" % tpb_url)
 
-    # Main loop
-    serie = series(tpb_url = tpb_url, title=serie_title, season=serie_season, episode=serie_episode, seeders_min=seeders_min)
+    # According to user choice, search in PiracyBay or torrent411
+    if search_type=='pb':
+        serie = series(tpb_url = tpb_url, title=serie_title, season=serie_season, episode=serie_episode, seeders_min=seeders_min)
+    else:
+        serie = series_t411(title=serie_title, season=serie_season, episode=serie_episode, seeders_min=seeders_min)
     best = serie.getbest()
 
     # Display result
@@ -453,36 +607,47 @@ def main():
                 print("*"*79)
                 print("Title:   %s" % r[0])
                 print("Seeders: %s" % r[1])
-                print("Magnet:  %s" % r[2])
+                if search_type=='pb':
+                    print("Magnet:  %s" % r[2])
+                else:
+                    print("Id:  %s" % r[2])
                 # print("Torrent: %s" % r[3])
         else:
             logging.info("Best match is %s" % best[0])
             print("Title:   %s" % best[0])
             print("Seeders: %s" % best[1])
-            print("Magnet:  %s" % best[2])
+            if search_type=='pb':
+                print("Magnet:  %s" % best[2])
+            else:
+               print("Id:  %s" % best[2])
             # print("Torrent: %s" % best[3])
     else:
         print("No torrent found for %s..." % serie_title)
 
     # Download
     if ((best is not None) and download_tag):
-        logging.info("Send best magnet to Transmission")
-        try:
-            tc = transmissionrpc.Client(transmission_rcp_host, port=transmission_rcp_port)
-        except:
-            print("Error: Can not connect to Transmission (%s:%s)" % (transmission_rcp_host, transmission_rcp_port))
-            print("Info: Transmission remote control access should be enabled on host %s, port %s" % (transmission_rcp_host, transmission_rcp_port))
-            logging.info("Can not connect to Transmission (%s:%s)" % (transmission_rcp_host, transmission_rcp_port))
-            sys.exit(1)
+        if search_type=='pb':
+            print("Magnet:  %s" % best[2])
+            logging.info("Send best magnet to Transmission")
+            try:
+                tc = transmissionrpc.Client(transmission_rcp_host, port=transmission_rcp_port)
+            except:
+                print("Error: Can not connect to Transmission (%s:%s)" % (transmission_rcp_host, transmission_rcp_port))
+                print("Info: Transmission remote control access should be enabled on host %s, port %s" % (transmission_rcp_host, transmission_rcp_port))
+                logging.info("Can not connect to Transmission (%s:%s)" % (transmission_rcp_host, transmission_rcp_port))
+                sys.exit(1)
+            else:
+                logging.debug("Transmission connection completed")
+            try:
+                tc.add_uri(best[2])
+            except:
+                logging.error("Error while sending download request to Transmission")
+                sys.exit(1)
+            else:
+                print("Transmission start downloading...")
         else:
-            logging.debug("Transmission connection completed")
-        try:
-            tc.add_uri(best[2])
-        except:
-            logging.error("Error while sending download request to Transmission")
-            sys.exit(1)
-        else:
-            print("Transmission start downloading...")
+            logging.info("Downloading torrent  %s" % best[2])
+
 
     # End of the game
     sys.exit(0)
@@ -490,7 +655,12 @@ def main():
 # Main
 #=====
 
+
+
+
+
 if __name__ == "__main__":
     main()
+    
 
 # The end...
