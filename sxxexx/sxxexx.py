@@ -57,7 +57,6 @@ import logging
 import re
 
 
-from getpass import getpass
 import t411
 
 
@@ -182,13 +181,13 @@ class series_t411(object):
         logging.info("%s torrent(s) found" % len(self.list))
 
 
-    def downloadbest(self, dir_download=None):
+    def downloadbest(self):
         best = self.getbest()
         if best is not None:
             #use title of torrent as filename. Will be saved as 'filename' + '.torrent'
-            self.source.download(best[2], filename=best[0], directory=dir_download)
+            self.source.download(best[2], filename=best[0], directory=self.dir_download)
         else:
-            logging.error("Can't download because no torrent was found.")
+            logging.error("Can't download because no torrent was found for this search.")
 
     def __readsource__(self):
         """
@@ -649,7 +648,6 @@ def main():
             else:
                 print("Transmission start downloading...")
         else:
-            print("Downloading torrent  %s" % best[2])
             serie.downloadbest()
 
     # End of the game

@@ -15,6 +15,7 @@ from json import loads, dumps
 import requests
 from urllib2 import urlopen, URLError, HTTPError, Request
 import os
+import logging
 
 
 HTTP_OK = 200
@@ -40,10 +41,11 @@ class T411(object):
                 
                 if 'uid' not in self.user_credentials or 'token' not in \
                         self.user_credentials:
+                    logging.error('Wrong data found in user file: %s' % USER_CREDENTIALS_FILE)
                     raise T411Exception('Wrong data found in user file')
                 else:
                     # nothing todo : we got credentials from file
-                    print("Using credentials from user file: %s" %USER_CREDENTIALS_FILE)
+                    logging.info('Using credentials from user file: %s' %USER_CREDENTIALS_FILE)
         except IOError as e:
             # we have to ask the user for its credentials and get
             # the token from the API
@@ -53,12 +55,13 @@ class T411(object):
                 try:
                     self._auth(user, password)
                 except T411Exception as e:
-                    print('Error while trying identification as %s: %s' %(user, e.message))
+                    logging.error('Error while trying identification as %s: %s' %(user, e.message))
                 else:
                     break
         except T411Exception as e:
             raise T411Exception(e.message)
         except Exception as e:
+            logging.error('Error while reading user credentials: %s.'% e.message)
             raise T411Exception('Error while reading user credentials: %s.'\
                     % e.message)
 
@@ -78,26 +81,51 @@ class T411(object):
     def call(self, method = '', params = None) :
         """ Call T411 API """
         
-
+        # authentification request
         if method == 'auth' :
             req = requests.post(API_URL % method, data=params)
+
+        # download torrent request
         elif 'download' in method:
+            torrentid = os.path.basename(method)
+            
+            # build torrent's filename
             if 'directory' in params and params['directory'] is not None:
                 torrentfile = os.path.join(params['directory'], params['filename'] + '.torrent')
             else:                    
                 torrentfile =  params['filename'] + '.torrent'
 
-            print("Downloading torrent %s to file : %s"  %(os.path.basename(method), torrentfile))
-            
-            with open(torrentfile, 'wb') as handle:
-                req = requests.get(API_URL % method, headers={'Authorization': '%s' %self.user_credentials['token']})
-                for block in req.iter_content(1024):
-                    if not block:
-                        break
-                    handle.write(block)
-            return 
+            logging.info("Downloading torrent %s to file : %s"  %(torrentid, torrentfile))
+            try:
+                with open(torrentfile, 'wb') as handle:
+                    req = requests.get(API_URL % method, 
+                        headers={'Authorization': '%s' %self.user_credentials['token']})
+                    
+                    if req.status_code == requests.codes.OK:
+                        try:
+                            req_json = req.json()
+                            if 'error' in req_json:
+                                logging.error('Got an error response from t411 server: %s' %req_json['error'])
+                        except ValueError:
+                            # unable to jsonify it, we considere response is the torrent file.
+                            # just download it
+                            for block in req.iter_content(1024):
+                                if not block:
+                                    break
+                                handle.write(block)
+
+                            print("Download success. Torrent file saved to '%s'" % torrentfile)
+                        return
+                    else:
+                        logging.error('Invalid response status_code : %s' (req.status_code)) 
+            except Exception as e:
+                logging.error('Download of torrent %s failed : %s' %(torrentid, e.message))
+                raise T411Exception(e.message)     
+
+        # other type requests : include Authorizaton credentials to the request
         else:
-            req = requests.post(API_URL % method, data=params, headers={'Authorization': self.user_credentials['token']}  )    
+            req = requests.post(API_URL % method, data=params, 
+                headers={'Authorization': self.user_credentials['token']}  )    
 
         if req.status_code == requests.codes.OK:
             return req.json()
