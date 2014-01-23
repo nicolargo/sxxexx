@@ -12,7 +12,9 @@ Authors :
 
 from getpass import getpass
 from json import loads, dumps  
-from requests import post, codes
+import requests
+from urllib2 import urlopen, URLError, HTTPError, Request
+import os
 
 
 HTTP_OK = 200
@@ -27,7 +29,7 @@ class T411Exception(BaseException):
 class T411(object):
     """ Base class for t411 interface """
 
-    def __init__(self, username=None, password=None) :
+    def __init__(self) :
         """ Get user credentials and authentificate it, if any credentials
         defined use token stored in user file
         """
@@ -39,18 +41,21 @@ class T411(object):
                 if 'uid' not in self.user_credentials or 'token' not in \
                         self.user_credentials:
                     raise T411Exception('Wrong data found in user file')
-                #else:
-                    # we have to ask the user for its credentials and get
-                    # the token from the API
-                    #user = raw_input('Please enter username: ')
-                    #password = getpass('Please enter password: ')
-                    #self._auth(user, password)
+                else:
+                    # nothing todo : we got credentials from file
+                    print("Using credentials from user file: %s" %USER_CREDENTIALS_FILE)
         except IOError as e:
             # we have to ask the user for its credentials and get
             # the token from the API
-            user = raw_input('Please enter username: ')
-            password = getpass('Please enter password: ')
-            self._auth(user, password)
+            while True:
+                user = raw_input('Please enter username: ')
+                password = getpass('Please enter password: ')
+                try:
+                    self._auth(user, password)
+                except T411Exception as e:
+                    print('Error while trying identification as %s: %s' %(user, e.message))
+                else:
+                    break
         except T411Exception as e:
             raise T411Exception(e.message)
         except Exception as e:
@@ -73,12 +78,28 @@ class T411(object):
     def call(self, method = '', params = None) :
         """ Call T411 API """
         
-        if method != 'auth' :
-            req = post(API_URL % method, data=params, headers={'Authorization': self.user_credentials['token']}  )
+
+        if method == 'auth' :
+            req = requests.post(API_URL % method, data=params)
+        elif 'download' in method:
+            if 'directory' in params and params['directory'] is not None:
+                torrentfile = os.path.join(params['directory'], params['filename'] + '.torrent')
+            else:                    
+                torrentfile =  params['filename'] + '.torrent'
+
+            print("Downloading torrent %s to file : %s"  %(os.path.basename(method), torrentfile))
+            
+            with open(torrentfile, 'wb') as handle:
+                req = requests.get(API_URL % method, headers={'Authorization': '%s' %self.user_credentials['token']})
+                for block in req.iter_content(1024):
+                    if not block:
+                        break
+                    handle.write(block)
+            return 
         else:
-            req = post(API_URL % method, data=params)
-        
-        if req.status_code == codes.OK:
+            req = requests.post(API_URL % method, data=params, headers={'Authorization': self.user_credentials['token']}  )    
+
+        if req.status_code == requests.codes.OK:
             return req.json()
         else :
             raise T411Exception('Error while sending %s request: HTTP %s' % \
@@ -108,9 +129,9 @@ class T411(object):
         """ Get torrent results for specific search """
         return self.call('torrents/search/%s?&limit=%s' % (to_search, limit))    
 
-    def download(self, torrent_id) :
+    def download(self, torrent_id, directory, filename) :
         """ Download a torrent """
-        return self.call('torrents/download/%s' % torrent_id)
+        return self.call('torrents/download/%s' % torrent_id, params={'filename' : filename, 'directory' : directory})
         
     def top100(self) :
         """ Get top 100 """

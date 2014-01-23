@@ -60,6 +60,7 @@ import re
 from getpass import getpass
 import t411
 
+
 # Import ext lib (mandatory)
 try:
     import tpb
@@ -159,27 +160,21 @@ class series_t411(object):
     """
 
     def __init__(self,
-            title="", season="", episode="", seeders_min=0):
+            title="", season="", episode="", seeders_min=0, directory_download=None):
         
-        self.login = raw_input('Please enter username: ')
-        self.password = getpass('Please enter password: ')
-
-
         
         self.title = title
-        self.source = self.__readsource__(self.login, self.password)
+        self.source = self.__readsource__()
         self.season = season
         self.episode = episode
         self.seeders_min = seeders_min
-
-        try:
-            self.t411_client = t411.T411(self.login, self.password)
-        except Exception as e:
-            raise e
+        self.dir_download = directory_download
         
         
         self.regexp = self.search_regexp()
         logging.debug("Search regexp: %s" % self.regexp)
+
+        #get the list of torrent from t411 source
         self.list = self.buildlist() 
 
         #sort list of torrents
@@ -187,17 +182,25 @@ class series_t411(object):
         logging.info("%s torrent(s) found" % len(self.list))
 
 
-    def __readsource__(self, login, password):
+    def downloadbest(self, dir_download=None):
+        best = self.getbest()
+        if best is not None:
+            #use title of torrent as filename. Will be saved as 'filename' + '.torrent'
+            self.source.download(best[2], filename=best[0], directory=dir_download)
+        else:
+            logging.error("Can't download because no torrent was found.")
+
+    def __readsource__(self):
         """
-        Connect to the t411 server with specified login & password
+        Connect to the t411 server
         """
         try:
-            src = t411.T411(login, password)
-        except:
-            logging.error("Error with t411 connection...")
+            src = t411.T411()
+        except Exception as e:
+            logging.error("Error while trying connection to t411... %s" % e.message)
             sys.exit(1)
         else:
-            print("Connected to the t411 server as '%s'" % login)
+            print("Connected to the t411 server")
             return src
 
     def search_regexp(self):
@@ -589,11 +592,11 @@ def main():
     else:
         logging.info("TVDB API is not installed")
 
-    if search_type=='pb':
-        logging.info("Piracy Bay URL (use -p to overwrite): %s" % tpb_url)
+
 
     # According to user choice, search in PiracyBay or torrent411
-    if search_type=='pb':
+    if search_type=='pb':    
+        logging.info("Piracy Bay URL (use -p to overwrite): %s" % tpb_url)
         serie = series(tpb_url = tpb_url, title=serie_title, season=serie_season, episode=serie_episode, seeders_min=seeders_min)
     else:
         serie = series_t411(title=serie_title, season=serie_season, episode=serie_episode, seeders_min=seeders_min)
@@ -646,8 +649,8 @@ def main():
             else:
                 print("Transmission start downloading...")
         else:
-            logging.info("Downloading torrent  %s" % best[2])
-
+            print("Downloading torrent  %s" % best[2])
+            serie.downloadbest()
 
     # End of the game
     sys.exit(0)
