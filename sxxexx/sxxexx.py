@@ -26,12 +26,13 @@ Options:
     -s <season>    Season (optionnal)
     -e <episode>   Episode (optionnal)
     -l <min>       Minimum seeders (optionnal, default is 0)
-    -q             Add a filter for HD quality
+    -q             Add a filter for HD quality (only for piracy bay)
     -p <url>       Overwrite default Piracy Bay URL
     -a             Display all results (not only the best choice)
     -d             Download best choice using Transmission (RPC)
     -c <host:port> Overwrite Transmission RPC address (default localhost:9091)
     -i             Disable access to the TVDB database
+    -S <directory> Save the t411 torrent to the specified directory
     -V             Switch on verbose mode (verbose like a man)
     -D             Switch on debug mode (verbose like a woman)
     -h             Display help and exit
@@ -273,7 +274,7 @@ class series_t411(object):
 
 
 
-class series(object):
+class series_pb(object):
     """
     Main class: search and download series
     """
@@ -441,10 +442,11 @@ def main():
     download_tag = False
     display_all_tag = False
     hd_tag = False
+    save_torrent_dir = None
 
     # Manage args
     try:
-        opts, args = getopt.getopt(sys.argv[1:], "T:t:s:e:l:qdc:p:aiVDhv")
+        opts, args = getopt.getopt(sys.argv[1:], "T:S:t:s:e:l:qdc:p:aiVDhv")
     except getopt.GetoptError as err:
         # Print help information and exit:
         print("Syntax error, %s" % str(err))
@@ -521,6 +523,9 @@ def main():
             else:
                 logging.error('Invalid type of search : t411 (torrent411) or pb (Piracy Bay). ')
                 sys.exit(1)
+        elif opt in ("-S"):
+            logging.info('Saving torrent from torrent411 to: %s' % arg)
+            save_torrent_dir = arg
         # Add others options here...
         else:
             printSyntax()
@@ -590,15 +595,18 @@ def main():
         logging.info("TVDB API is installed")
     else:
         logging.info("TVDB API is not installed")
+    if (save_torrent_dir and not download_tag):
+        print("-S tag need to be used with -d tag")
+        sys.exit(1)
 
 
 
     # According to user choice, search in PiracyBay or torrent411
     if search_type=='pb':    
         logging.info("Piracy Bay URL (use -p to overwrite): %s" % tpb_url)
-        serie = series(tpb_url = tpb_url, title=serie_title, season=serie_season, episode=serie_episode, seeders_min=seeders_min)
+        serie = series_pb(tpb_url = tpb_url, title=serie_title, season=serie_season, episode=serie_episode, seeders_min=seeders_min)
     else:
-        serie = series_t411(title=serie_title, season=serie_season, episode=serie_episode, seeders_min=seeders_min)
+        serie = series_t411(title=serie_title, season=serie_season, episode=serie_episode, seeders_min=seeders_min, directory_download=save_torrent_dir)
     best = serie.getbest()
 
     # Display result
