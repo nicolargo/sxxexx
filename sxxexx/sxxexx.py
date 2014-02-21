@@ -16,21 +16,23 @@ __license__ = "MIT"
 # Syntax
 __doc__ = '''\
 
-Search (and download) series from the Piracy Bay.
+Search (and download) series from the Piracy Bay and torrent411.
 
 Usage: sxxexx [options]
 
 Options:
+    -T <pb|t411>   Search in server : 't411' (torrent411) or 'pb' (piracy Bay)
     -t <title>     Serie's title
     -s <season>    Season (optionnal)
     -e <episode>   Episode (optionnal)
     -l <min>       Minimum seeders (optionnal, default is 0)
-    -q             Add a filter for HD quality
+    -q             Add a filter for HD quality (only for piracy bay)
     -p <url>       Overwrite default Piracy Bay URL
     -a             Display all results (not only the best choice)
     -d             Download best choice using Transmission (RPC)
     -c <host:port> Overwrite Transmission RPC address (default localhost:9091)
     -i             Disable access to the TVDB database
+    -S <directory> Save the t411 torrent to the specified directory
     -V             Switch on verbose mode (verbose like a man)
     -D             Switch on debug mode (verbose like a woman)
     -h             Display help and exit
@@ -55,6 +57,10 @@ import sys
 import logging
 import re
 
+
+import t411
+
+
 # Import ext lib (mandatory)
 try:
     import tpb
@@ -76,6 +82,13 @@ except:
     transmissionrpc_tag = False
 else:
     transmissionrpc_tag = True
+
+
+
+
+
+
+
 
 # Global variables
 tpb_url = "https://thepiratebay.se"
@@ -135,7 +148,133 @@ class tvdb(object):
         return -1
 
 
-class series(object):
+
+
+
+
+
+
+class series_t411(object):
+    """
+    Main class: search and download series from t411 server
+    """
+
+    def __init__(self,
+            title="", season="", episode="", seeders_min=0, directory_download=None):
+        
+        
+        self.title = title
+        self.source = self.__readsource__()
+        self.season = season
+        self.episode = episode
+        self.seeders_min = seeders_min
+        self.dir_download = directory_download
+        
+        
+        self.regexp = self.search_regexp()
+        logging.debug("Search regexp: %s" % self.regexp)
+
+        #get the list of torrent from t411 source
+        self.list = self.buildlist() 
+
+        #sort list of torrents
+        self.list.sort(key=lambda torrent: int(torrent[1]), reverse=True)
+        logging.info("%s torrent(s) found" % len(self.list))
+
+
+    def downloadbest(self):
+        best = self.getbest()
+        if best is not None:
+            #use title of torrent as filename. Will be saved as 'filename' + '.torrent'
+            self.source.download(best[2], filename=best[0], directory=self.dir_download)
+        else:
+            logging.error("Can't download because no torrent was found for this search.")
+
+    def __readsource__(self):
+        """
+        Connect to the t411 server
+        """
+        try:
+            src = t411.T411()
+        except Exception as e:
+            logging.error("Error while trying connection to t411... %s" % e.message)
+            sys.exit(1)
+        else:
+            print("Connected to the t411 server")
+            return src
+
+    def search_regexp(self):
+        """
+        Define the regexp used for the search
+        """
+        if ((self.season == "") and (self.episode == "")):
+            regexp = '^%s.*' % self.title.lower()
+        elif (self.episode == ""):
+            regexp = '^%s.*(s[0]*%s|season[\s\_\-\.]*%s).*' % (self.title.lower(), self.season, self.season)
+        else:
+            regexp = '^%s.*((s[0]*%s.*e[0]*%s)|[0]*%sx[0]*%s).*' % (self.title.lower(), self.season, self.episode, self.season, self.episode)
+        return regexp
+
+
+    def buildlist(self, category=tpb.CATEGORIES.VIDEO.TV_SHOWS, limit=1000):
+        """
+        Build the torrent list
+        Return list of list sorted by seeders count
+        Id can be used to retrieve torrent associate with this id
+        [[<title>, <Seeders>, <id>] ...]
+        """
+
+        try:
+            s = self.source.search(self.title.lower(), limit)
+        except Exception as e:
+            logging.error("Can not send search request to the t411 server")
+            logging.error(e.message)
+            sys.exit(1)
+        
+
+        try:
+            for t in s.items():
+                pass
+        except:
+            logging.error("t411 server returned an invalid result")
+            sys.exit(1)
+
+        torrentlist = []
+        for torrent in s['torrents']:    
+            #logging.debug("Compare regex to: %s" % t.title.lower())
+            if (re.search(self.regexp, torrent['name'].lower()) and (int(torrent['seeders']) >= self.seeders_min)):
+                # logging.debug("Matched")
+                torrentlist.append((torrent['name'], torrent['seeders'], torrent['id']))
+
+        logging.debug("Found %s matching items " % (len(torrentlist)))
+
+        # Return the list
+        return torrentlist
+
+
+    def getbest(self):
+        """
+        Return the best choice (or None if no serie founded)
+        """
+        if (len(self.list) > 0):
+            return self.list[0]
+        else:
+            return None
+
+
+    def getall(self):
+        """
+        Return all the matched series (or None if no serie founded)
+        """
+        if (len(self.list) > 0):
+            return self.list
+        else:
+            return None
+
+
+
+
+class series_pb(object):
     """
     Main class: search and download series
     """
@@ -265,7 +404,6 @@ class series(object):
         else:
             return None
 
-
 # Functions
 
 def printSyntax():
@@ -297,16 +435,18 @@ def main():
 
     # Init locals variables
     serie_title = None
+    search_type = None
     serie_season = ""
     serie_episode = ""
     seeders_min = 0
     download_tag = False
     display_all_tag = False
     hd_tag = False
+    save_torrent_dir = None
 
     # Manage args
     try:
-        opts, args = getopt.getopt(sys.argv[1:], "t:s:e:l:qdc:p:aiVDhv")
+        opts, args = getopt.getopt(sys.argv[1:], "T:S:t:s:e:l:qdc:p:aiVDhv")
     except getopt.GetoptError as err:
         # Print help information and exit:
         print("Syntax error, %s" % str(err))
@@ -377,11 +517,20 @@ def main():
                 datefmt='%d/%m/%Y %H:%M:%S',
             )
             logging.debug("Debug mode is ON")
+        elif opt in ("-T"):
+            if arg=='pb' or arg=='t411':
+                search_type=arg
+            else:
+                logging.error('Invalid type of search : t411 (torrent411) or pb (Piracy Bay). ')
+                sys.exit(1)
+        elif opt in ("-S"):
+            logging.info('Saving torrent from torrent411 to: %s' % arg)
+            save_torrent_dir = arg
         # Add others options here...
         else:
             printSyntax()
             sys.exit(1)
-
+    
     if (not _DEBUG_):
         # Set default logging message to ERROR
         logging.basicConfig(
@@ -399,6 +548,14 @@ def main():
         sys.exit(1)
     else:
         logging.info("Search for title %s" % serie_title)
+    if search_type==None:
+        logging.error("Need a type of search : t411 (torrent411) or pb (Piracy Bay). Use the -T tag.")
+        sys.exit(1)
+    else:
+        if search_type=='pb':
+            logging.info("Search on PiracyBay")
+        else:
+            logging.info("Search on torrent411")
     if (serie_season != ""):
         # Optionnal season number
         logging.info("Search for season %s" % serie_season)
@@ -438,11 +595,18 @@ def main():
         logging.info("TVDB API is installed")
     else:
         logging.info("TVDB API is not installed")
+    if (save_torrent_dir and not download_tag):
+        print("-S tag need to be used with -d tag")
+        sys.exit(1)
 
-    logging.info("Piracy Bay URL (use -p to overwrite): %s" % tpb_url)
 
-    # Main loop
-    serie = series(tpb_url = tpb_url, title=serie_title, season=serie_season, episode=serie_episode, seeders_min=seeders_min)
+
+    # According to user choice, search in PiracyBay or torrent411
+    if search_type=='pb':    
+        logging.info("Piracy Bay URL (use -p to overwrite): %s" % tpb_url)
+        serie = series_pb(tpb_url = tpb_url, title=serie_title, season=serie_season, episode=serie_episode, seeders_min=seeders_min)
+    else:
+        serie = series_t411(title=serie_title, season=serie_season, episode=serie_episode, seeders_min=seeders_min, directory_download=save_torrent_dir)
     best = serie.getbest()
 
     # Display result
@@ -453,36 +617,46 @@ def main():
                 print("*"*79)
                 print("Title:   %s" % r[0])
                 print("Seeders: %s" % r[1])
-                print("Magnet:  %s" % r[2])
+                if search_type=='pb':
+                    print("Magnet:  %s" % r[2])
+                else:
+                    print("Id:  %s" % r[2])
                 # print("Torrent: %s" % r[3])
         else:
             logging.info("Best match is %s" % best[0])
             print("Title:   %s" % best[0])
             print("Seeders: %s" % best[1])
-            print("Magnet:  %s" % best[2])
+            if search_type=='pb':
+                print("Magnet:  %s" % best[2])
+            else:
+               print("Id:  %s" % best[2])
             # print("Torrent: %s" % best[3])
     else:
         print("No torrent found for %s..." % serie_title)
 
     # Download
     if ((best is not None) and download_tag):
-        logging.info("Send best magnet to Transmission")
-        try:
-            tc = transmissionrpc.Client(transmission_rcp_host, port=transmission_rcp_port)
-        except:
-            print("Error: Can not connect to Transmission (%s:%s)" % (transmission_rcp_host, transmission_rcp_port))
-            print("Info: Transmission remote control access should be enabled on host %s, port %s" % (transmission_rcp_host, transmission_rcp_port))
-            logging.info("Can not connect to Transmission (%s:%s)" % (transmission_rcp_host, transmission_rcp_port))
-            sys.exit(1)
+        if search_type=='pb':
+            print("Magnet:  %s" % best[2])
+            logging.info("Send best magnet to Transmission")
+            try:
+                tc = transmissionrpc.Client(transmission_rcp_host, port=transmission_rcp_port)
+            except:
+                print("Error: Can not connect to Transmission (%s:%s)" % (transmission_rcp_host, transmission_rcp_port))
+                print("Info: Transmission remote control access should be enabled on host %s, port %s" % (transmission_rcp_host, transmission_rcp_port))
+                logging.info("Can not connect to Transmission (%s:%s)" % (transmission_rcp_host, transmission_rcp_port))
+                sys.exit(1)
+            else:
+                logging.debug("Transmission connection completed")
+            try:
+                tc.add_uri(best[2])
+            except:
+                logging.error("Error while sending download request to Transmission")
+                sys.exit(1)
+            else:
+                print("Transmission start downloading...")
         else:
-            logging.debug("Transmission connection completed")
-        try:
-            tc.add_uri(best[2])
-        except:
-            logging.error("Error while sending download request to Transmission")
-            sys.exit(1)
-        else:
-            print("Transmission start downloading...")
+            serie.downloadbest()
 
     # End of the game
     sys.exit(0)
@@ -490,7 +664,12 @@ def main():
 # Main
 #=====
 
+
+
+
+
 if __name__ == "__main__":
     main()
+    
 
 # The end...
