@@ -240,13 +240,14 @@ class series_t411(object):
             sys.exit(1)
 
         torrentlist = []
-        for torrent in s['torrents']:    
-            #logging.debug("Compare regex to: %s" % t.title.lower())
-            if (re.search(self.regexp, torrent['name'].lower()) and (int(torrent['seeders']) >= self.seeders_min)):
-                # logging.debug("Matched")
-                torrentlist.append((torrent['name'], torrent['seeders'], torrent['id']))
+        for torrent in s['torrents']:
+            if isinstance(torrent, dict):    
+                #logging.debug("Compare regex to: %s" % t.title.lower())
+                if (re.search(self.regexp, torrent['name'].lower()) and (int(torrent['seeders']) >= self.seeders_min)):
+                    # logging.debug("Matched")
+                    torrentlist.append((torrent['name'], torrent['seeders'], torrent['id']))
 
-        logging.debug("Found %s matching items " % (len(torrentlist)))
+        logging.debug("Found %d matching items " % (len(torrentlist)))
 
         # Return the list
         return torrentlist
