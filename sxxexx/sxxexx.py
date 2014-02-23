@@ -186,9 +186,10 @@ class series_t411(object):
         best = self.getbest()
         if best is not None:
             #use title of torrent as filename. Will be saved as 'filename' + '.torrent'
-            self.source.download(best[2], filename=best[0], directory=self.dir_download)
+            return self.source.download(best[2], filename=best[0], directory=self.dir_download)
         else:
             logging.error("Can't download because no torrent was found for this search.")
+            return None
 
     def __readsource__(self):
         """
@@ -637,27 +638,31 @@ def main():
 
     # Download
     if ((best is not None) and download_tag):
+        uri = None
         if search_type=='pb':
-            print("Magnet:  %s" % best[2])
+            uri = best[2]
             logging.info("Send best magnet to Transmission")
-            try:
-                tc = transmissionrpc.Client(transmission_rcp_host, port=transmission_rcp_port)
-            except:
-                print("Error: Can not connect to Transmission (%s:%s)" % (transmission_rcp_host, transmission_rcp_port))
-                print("Info: Transmission remote control access should be enabled on host %s, port %s" % (transmission_rcp_host, transmission_rcp_port))
-                logging.info("Can not connect to Transmission (%s:%s)" % (transmission_rcp_host, transmission_rcp_port))
-                sys.exit(1)
-            else:
-                logging.debug("Transmission connection completed")
-            try:
-                tc.add_uri(best[2])
-            except:
-                logging.error("Error while sending download request to Transmission")
-                sys.exit(1)
-            else:
-                print("Transmission start downloading...")
+            print("Uri:  %s" % uri)
+        
+        try:
+            tc = transmissionrpc.Client(transmission_rcp_host, port=transmission_rcp_port)
+        except:
+            print("Error: Can not connect to Transmission (%s:%s)" % (transmission_rcp_host, transmission_rcp_port))
+            print("Info: Transmission remote control access should be enabled on host %s, port %s" % (transmission_rcp_host, transmission_rcp_port))
+            logging.info("Can not connect to Transmission (%s:%s)" % (transmission_rcp_host, transmission_rcp_port))
+            sys.exit(1)
         else:
-            serie.downloadbest()
+            logging.debug("Transmission connection completed")
+        try:
+            if search_type=='pb':
+                tc.add_uri(best[2])
+            else:
+                tc.add(serie.downloadbest())
+        except:
+            logging.error("Error while sending download request to Transmission")
+            sys.exit(1)
+        else:
+            print("Transmission start downloading...")
 
     # End of the game
     sys.exit(0)
