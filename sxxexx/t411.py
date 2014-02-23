@@ -17,6 +17,8 @@ from urllib2 import urlopen, URLError, HTTPError, Request
 import os
 import logging
 
+import base64
+
 
 HTTP_OK = 200
 API_URL = 'https://api.t411.me/%s'
@@ -102,6 +104,7 @@ class T411(object):
                         headers={'Authorization': '%s' %self.user_credentials['token']})
                     
                     if req.status_code == requests.codes.OK:
+                        torrent_data = None
                         try:
                             req_json = req.json()
                             if 'error' in req_json:
@@ -109,13 +112,15 @@ class T411(object):
                         except ValueError:
                             # unable to jsonify it, we considere response is the torrent file.
                             # just download it
+                            torrent_data = ''
                             for block in req.iter_content(1024):
                                 if not block:
                                     break
                                 handle.write(block)
-
+                                torrent_data += block
+                            
                             print("Download success. Torrent file saved to '%s'" % torrentfile)
-                        return
+                        return base64.b64encode(torrent_data)
                     else:
                         logging.error('Invalid response status_code : %s' (req.status_code)) 
             except Exception as e:
