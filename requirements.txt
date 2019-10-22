@@ -8,6 +8,6 @@ lxml==3.3.1
 purl==0.8
 python-dateutil==2.2
 pytz==2013.9
-requests==2.2.1
+requests==2.20.0
 six==1.5.2
 wsgiref==0.1.2
